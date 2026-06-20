@@ -96,8 +96,8 @@ TournamentManagementSystem/
 
 ## Licença
 
-[Adicione sua licença aqui]
+Manna Roosters
 
 ## Autores
 
-[Adicione informações do autor aqui]
+Junior
