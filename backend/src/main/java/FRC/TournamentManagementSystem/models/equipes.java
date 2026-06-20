@@ -18,7 +18,7 @@ public class equipes {
 
     private String equipe; // Este atributo guarda o nome da equipe (Ex: "Equipe 1")
 
-    @OneToMany(mappedBy = "equipe", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "equipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<pontuacao> pontuacoes;
 
     public Long getId() {

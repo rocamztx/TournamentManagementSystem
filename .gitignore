@@ -22,6 +22,7 @@ frontend/*.iml
 frontend/android/gradlew
 frontend/android/gradlew.bat
 frontend/android/.gradle/
+frontend/android/.kotlin/
 frontend/android/local.properties
 
 # iOS

@@ -1,8 +1,10 @@
 package FRC.TournamentManagementSystem.controllers;
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -21,47 +23,49 @@ import FRC.TournamentManagementSystem.services.ClassificacaoService;
 
 @RestController
 @RequestMapping("/api/classificacao")
-@CrossOrigin(origins = "*") // Permite que o Flutter (Web ou Mobile) se conecte sem tomar erro de CORS
+@CrossOrigin(origins = "*")
 public class ClassificacaoController {
 
     @Autowired
     private ClassificacaoService classificacaoService;
 
-    /**
-     * Endpoint que o Flutter vai acessar via GET para renderizar a tabela principal.
-     */
+    @Value("${app.api-key}")
+    private String apiKeyConfigurada;
+
     @GetMapping
     public ResponseEntity<List<ClassificacaoDTO>> buscarClassificacaoGeral() {
-        List<ClassificacaoDTO> ranking = classificacaoService.obterClassificacaoGeral();
-        return ResponseEntity.ok(ranking); // Retorna a lista dentro de uma resposta HTTP 200 (OK)
+        return ResponseEntity.ok(classificacaoService.obterClassificacaoGeral());
     }
 
-   /**
-     * Endpoint do Modo Juiz protegido por Senha Mestre (API Key).
-     */
+    @GetMapping("/status")
+    public ResponseEntity<Map<String, Object>> status() {
+        return ResponseEntity.ok(Map.of(
+                "api", "online",
+                "websocket", "/ws-torneio",
+                "topic", "/topic/classificacao",
+                "equipes", classificacaoService.obterClassificacaoGeral().size()
+        ));
+    }
+
     @PostMapping("/lancar-nota")
     public ResponseEntity<String> lancarNota(
             @RequestHeader(value = "X-API-KEY", required = false) String apiKey,
             @RequestBody PontuacaoInputDTO dto) {
 
-        // Defina a senha mestre do seu campeonato aqui
-        String senhaMestreSegura = "OBR2026_ROBOTICA_ELITE";
-
-        // Validação de Segurança: Se não enviou ou a senha está errada, retorna 401 Unauthorized
-        if (apiKey == null || !apiKey.equals(senhaMestreSegura)) {
-            return ResponseEntity.status(401).body("Acesso Negado: Chave de API inválida ou ausente.");
+        if (!apiKeyValida(apiKey)) {
+            return ResponseEntity.status(401).body("Acesso negado: chave de API invalida ou ausente.");
         }
 
         classificacaoService.salvarPontuacao(dto);
-        return ResponseEntity.ok("Pontuação lançada com sucesso.");
+        return ResponseEntity.ok("Pontuacao lancada com sucesso.");
     }
-    
+
     @DeleteMapping("/zerar/{equipeId}")
     public ResponseEntity<Void> zerarPontuacao(
             @PathVariable Long equipeId,
-            @RequestHeader("X-API-KEY") String apiKey) {
-        // Mantém a trava de segurança para nenhum hacker zerar o torneio
-        if (!"OBR2026_ROBOTICA_ELITE".equals(apiKey)) {
+            @RequestHeader(value = "X-API-KEY", required = false) String apiKey) {
+
+        if (!apiKeyValida(apiKey)) {
             return ResponseEntity.status(403).build();
         }
 
@@ -72,15 +76,23 @@ public class ClassificacaoController {
     @PutMapping("/editar-equipe/{id}")
     public ResponseEntity<Void> editarNomeEquipe(
             @PathVariable Long id,
-            @RequestBody java.util.Map<String, String> payload,
-            @RequestHeader("X-API-KEY") String apiKey) {
+            @RequestBody Map<String, String> payload,
+            @RequestHeader(value = "X-API-KEY", required = false) String apiKey) {
 
-        if (!"OBR2026_ROBOTICA_ELITE".equals(apiKey)) {
+        if (!apiKeyValida(apiKey)) {
             return ResponseEntity.status(403).build();
         }
 
-        // Pega o "nome" que o Flutter enviou no JSON
-        classificacaoService.atualizarNomeEquipe(id, payload.get("nome"));
+        String nome = payload.get("nome");
+        if (nome == null || nome.trim().isEmpty()) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        classificacaoService.atualizarNomeEquipe(id, nome.trim());
         return ResponseEntity.ok().build();
+    }
+
+    private boolean apiKeyValida(String apiKey) {
+        return apiKey != null && apiKey.equals(apiKeyConfigurada);
     }
 }

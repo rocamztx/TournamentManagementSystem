@@ -26,9 +26,10 @@ class _TelaoViewState extends State<TelaoView> {
       config: StompConfig(
         url: '${NetworkConfig.baseUrl}/ws-torneio',
         useSockJS: true,
+        reconnectDelay: const Duration(seconds: 5),
         onConnect: (frame) {
           print('✅ Conexão WebSocket Ativa');
-          
+
           // 1. Inscreve-se para receber atualizações futuras
           _client?.subscribe(
             destination: '/topic/classificacao',
@@ -36,7 +37,9 @@ class _TelaoViewState extends State<TelaoView> {
               if (frame.body != null) {
                 final List<dynamic> json = jsonDecode(frame.body!);
                 setState(() {
-                  _dados = json.map((j) => ClassificacaoModel.fromJson(j)).toList();
+                  _dados = json
+                      .map((j) => ClassificacaoModel.fromJson(j))
+                      .toList();
                 });
                 print('⚡ Dados atualizados em tempo real.');
               }
@@ -44,10 +47,7 @@ class _TelaoViewState extends State<TelaoView> {
           );
 
           // 2. SOLICITAÇÃO INICIAL: Pede os dados atuais imediatamente após conectar
-          _client?.send(
-            destination: '/app/solicitar-classificacao',
-            body: '', 
-          );
+          _client?.send(destination: '/app/solicitar-classificacao', body: '');
         },
         onWebSocketError: (e) => print('🚨 Erro WS: $e'),
       ),
@@ -65,14 +65,17 @@ class _TelaoViewState extends State<TelaoView> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.black,
-      body: _dados.isEmpty 
+      body: _dados.isEmpty
           ? const Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   CircularProgressIndicator(color: Colors.blueAccent),
                   SizedBox(height: 20),
-                  Text("AGUARDANDO DADOS DO SERVIDOR...", style: TextStyle(color: Colors.white, fontSize: 18)),
+                  Text(
+                    "AGUARDANDO DADOS DO SERVIDOR...",
+                    style: TextStyle(color: Colors.white, fontSize: 18),
+                  ),
                 ],
               ),
             )
@@ -81,7 +84,10 @@ class _TelaoViewState extends State<TelaoView> {
               itemCount: _dados.length,
               itemBuilder: (_, i) => Container(
                 margin: const EdgeInsets.only(bottom: 10),
-                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 15,
+                ),
                 decoration: BoxDecoration(
                   color: Colors.white10,
                   borderRadius: BorderRadius.circular(12),
@@ -89,8 +95,22 @@ class _TelaoViewState extends State<TelaoView> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text(_dados[i].nomeDaEquipe, style: const TextStyle(color: Colors.white, fontSize: 32, fontWeight: FontWeight.bold)),
-                    Text('${_dados[i].notaTotal} PTS', style: const TextStyle(color: Color(0xFF22C55E), fontSize: 32, fontWeight: FontWeight.bold)),
+                    Text(
+                      _dados[i].nomeDaEquipe,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_dados[i].notaTotal} PTS',
+                      style: const TextStyle(
+                        color: Color(0xFF22C55E),
+                        fontSize: 32,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ],
                 ),
               ),

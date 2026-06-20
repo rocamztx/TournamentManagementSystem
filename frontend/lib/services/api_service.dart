@@ -3,8 +3,14 @@ import '../config/network_config.dart';
 import '../models/classificacao_model.dart';
 
 class ApiService {
-  final Dio _dio = Dio();
-  
+  final Dio _dio = Dio(
+    BaseOptions(
+      connectTimeout: const Duration(seconds: 5),
+      receiveTimeout: const Duration(seconds: 10),
+      sendTimeout: const Duration(seconds: 10),
+    ),
+  );
+
   // URL base do seu servidor Spring Boot
   final String _baseUrl = '${NetworkConfig.baseUrl}/api/classificacao';
 
@@ -29,7 +35,12 @@ class ApiService {
   // ==========================================================
   // 2. MÉTODO POST: Envia a nota do Modo Juiz para o Java
   // ==========================================================
-  Future<void> lancarNota(int equipeId, int round, int pontos, double tempo) async {
+  Future<void> lancarNota(
+    int equipeId,
+    int round,
+    int pontos,
+    double tempo,
+  ) async {
     try {
       // Endpoint exato onde o Java está escutando o POST
       final String urlPost = '$_baseUrl/lancar-nota';
@@ -88,6 +99,7 @@ class ApiService {
       throw Exception('Falha na comunicação: $e');
     }
   }
+
   // ==========================================================
   // 4. MÉTODO PUT: Atualiza o nome da equipe no banco
   // ==========================================================
@@ -95,12 +107,17 @@ class ApiService {
     try {
       final String urlPut = '$_baseUrl/editar-equipe/$equipeId';
       final cabecalhos = {'X-API-KEY': 'OBR2026_ROBOTICA_ELITE'};
-      
+
       final corpoJson = {'nome': novoNome};
 
-      final response = await _dio.put(urlPut, data: corpoJson, options: Options(headers: cabecalhos));
+      final response = await _dio.put(
+        urlPut,
+        data: corpoJson,
+        options: Options(headers: cabecalhos),
+      );
 
-      if (response.statusCode != 200) throw Exception('Erro ao atualizar nome.');
+      if (response.statusCode != 200)
+        throw Exception('Erro ao atualizar nome.');
     } catch (e) {
       throw Exception('Falha na comunicação: $e');
     }
