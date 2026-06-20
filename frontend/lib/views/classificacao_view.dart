@@ -3,9 +3,11 @@ import 'package:flutter/material.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../config/network_config.dart';
 import '../services/api_service.dart';
+import '../services/server_config_service.dart';
 import '../models/classificacao_model.dart';
 import 'modo_juiz_view.dart';
 import 'telao_view.dart'; // Importação do Telão
+import 'server_settings_view.dart';
 
 class AppColors {
   static const Color primaryNavy = Color(0xFF1A365D);
@@ -103,6 +105,81 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
       length: 3,
       child: Scaffold(
         backgroundColor: AppColors.background,
+        appBar: AppBar(
+          elevation: 0,
+          backgroundColor: Colors.white,
+          actions: [
+            PopupMenuButton(
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  child: const Row(
+                    children: [
+                      Icon(Icons.router, color: AppColors.techBlue),
+                      SizedBox(width: 12),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text('Servidor Conectado'),
+                          Text(
+                            'Configurar',
+                            style: TextStyle(fontSize: 12, color: Colors.grey),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => const ServerSettingsView(),
+                      ),
+                    ).then((_) {
+                      // Reconecta ao voltar da tela de settings
+                      _recarregarDados();
+                      _conectarWebSocket();
+                    });
+                  },
+                ),
+                const PopupMenuDivider(),
+                PopupMenuItem(
+                  child: const Row(
+                    children: [
+                      Icon(Icons.info_outline, color: Colors.grey),
+                      SizedBox(width: 12),
+                      Text('Informações do Servidor'),
+                    ],
+                  ),
+                  onTap: () {
+                    showDialog(
+                      context: context,
+                      builder: (context) => AlertDialog(
+                        title: const Text('Informações do Servidor'),
+                        content: Text(
+                          NetworkConfig.getConfigInfo(),
+                          style: const TextStyle(fontFamily: 'monospace'),
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: () => Navigator.pop(context),
+                            child: const Text('OK'),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                ),
+              ],
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Icon(
+                  Icons.more_vert,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+            ),
+          ],
+        ),
         // BOTÃO ADICIONADO PARA ACESSO AO TELÃO
         floatingActionButton: FloatingActionButton.extended(
           backgroundColor: AppColors.techBlue,

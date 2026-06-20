@@ -11,8 +11,8 @@ class ApiService {
     ),
   );
 
-  // URL base do seu servidor Spring Boot
-  final String _baseUrl = '${NetworkConfig.baseUrl}/api/classificacao';
+  // URL base do seu servidor Spring Boot (dinâmica)
+  String get _baseUrl => '${NetworkConfig.baseUrl}/api/classificacao';
 
   // ==========================================================
   // 1. MÉTODO GET: Busca a lista de classificação para a tabela
