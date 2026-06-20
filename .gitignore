@@ -1,0 +1,52 @@
+# Backend - Maven/Java
+backend/target/
+backend/.classpath
+backend/.project
+backend/.settings/
+backend/.idea/
+backend/*.iml
+backend/bin/
+
+# Frontend - Flutter
+frontend/build/
+frontend/.dart_tool/
+frontend/.flutter-plugins
+frontend/.flutter-plugins-dependencies
+frontend/.packages
+frontend/.pub-cache/
+frontend/pubspec.lock
+frontend/.idea/
+frontend/*.iml
+
+# Android
+frontend/android/gradlew
+frontend/android/gradlew.bat
+frontend/android/.gradle/
+frontend/android/local.properties
+
+# iOS
+frontend/ios/.symlinks/
+frontend/ios/Flutter/Flutter.podspec
+frontend/ios/Flutter/Generated.xcconfig
+
+# MacOS
+frontend/macos/Flutter/Flutter.podspec
+frontend/macos/Flutter/ephemeral/
+
+# Web
+frontend/web/index.html.bak
+
+# General
+.DS_Store
+*.swp
+*.swo
+*~
+.vscode/
+.env
+*.log
+
+# IDE
+.idea/
+*.iml
+*.sublime-project
+*.sublime-workspace
