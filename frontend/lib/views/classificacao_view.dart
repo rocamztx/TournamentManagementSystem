@@ -3,7 +3,6 @@ import 'package:flutter/material.dart';
 import 'package:stomp_dart_client/stomp_dart_client.dart';
 import '../config/network_config.dart';
 import '../services/api_service.dart';
-import '../services/server_config_service.dart';
 import '../models/classificacao_model.dart';
 import 'modo_juiz_view.dart';
 import 'telao_view.dart'; // Importação do Telão
@@ -109,9 +108,9 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
           elevation: 0,
           backgroundColor: Colors.white,
           actions: [
-            PopupMenuButton(
-              itemBuilder: (context) => [
-                PopupMenuItem(
+            PopupMenuButton<String>(
+              itemBuilder: (context) => <PopupMenuEntry<String>>[
+                PopupMenuItem<String>(
                   child: const Row(
                     children: [
                       Icon(Icons.router, color: AppColors.techBlue),
@@ -142,7 +141,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                   },
                 ),
                 const PopupMenuDivider(),
-                PopupMenuItem(
+                PopupMenuItem<String>(
                   child: const Row(
                     children: [
                       Icon(Icons.info_outline, color: Colors.grey),
