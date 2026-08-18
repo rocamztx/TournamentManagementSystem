@@ -17,5 +17,3 @@ echo Fechar e abrir este servidor nao apaga as pontuacoes.
 echo.
 
 call mvnw.cmd spring-boot:run
-
-pause

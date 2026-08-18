@@ -3,6 +3,7 @@ package FRC.TournamentManagementSystem.models;
 import java.util.List;
 
 import jakarta.persistence.CascadeType;
+import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
@@ -17,6 +18,9 @@ public class equipes {
     private Long id;
 
     private String equipe; // Este atributo guarda o nome da equipe (Ex: "Equipe 1")
+
+    @Column(length = 50)
+    private String modalidade; // "seguidor_linha", "cabo_guerra" ou "sumo"
 
     @OneToMany(mappedBy = "equipe", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<pontuacao> pontuacoes;
@@ -35,6 +39,14 @@ public class equipes {
 
     public void setEquipe(String equipe) {
         this.equipe = equipe;
+    }
+
+    public String getModalidade() {
+        return modalidade;
+    }
+
+    public void setModalidade(String modalidade) {
+        this.modalidade = modalidade;
     }
 
     // Getter e Setter da lista de pontuações para a nossa Service conseguir ler os dados!

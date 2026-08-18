@@ -12,7 +12,6 @@ flutter --version
 if %ERRORLEVEL% NEQ 0 (
     echo Erro: Flutter nao encontrado. Instale o Flutter SDK.
     pause
-    exit /b 1
 )
 
 echo.
@@ -22,7 +21,6 @@ flutter clean
 if %ERRORLEVEL% NEQ 0 (
     echo Erro ao limpar o projeto.
     pause
-    exit /b 1
 )
 
 echo.
@@ -31,7 +29,6 @@ flutter pub get
 if %ERRORLEVEL% NEQ 0 (
     echo Erro ao atualizar dependencias.
     pause
-    exit /b 1
 )
 
 echo.
@@ -40,7 +37,6 @@ flutter build apk --release --split-per-abi
 if %ERRORLEVEL% NEQ 0 (
     echo Erro ao gerar APK.
     pause
-    exit /b 1
 )
 
 echo.

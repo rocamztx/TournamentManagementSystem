@@ -32,6 +32,9 @@ public class ClassificacaoService {
     @Autowired
     private SimpMessagingTemplate messagingTemplate; // INJEÇÃO DO WEBSOCKET
 
+    @Autowired
+    private TerminalScoreboardService terminalScoreboardService;
+
     @Transactional
     public void salvarPontuacao(PontuacaoInputDTO dto) {
         equipes equipe = equipeRepository.findById(dto.equipeId())
@@ -46,7 +49,15 @@ public class ClassificacaoService {
         equipe.getPontuacoes().add(novaPontuacao);
         pontuacaoRepository.save(novaPontuacao);
 
-        messagingTemplate.convertAndSend("/topic/classificacao", obterClassificacaoGeral());
+        // Broadcast para a modalidade da equipe (ou geral se sem modalidade)
+        String modalidade = equipe.getModalidade();
+        terminalScoreboardService.registrarAtualizacao(
+                equipe.getEquipe(),
+                dto.round(),
+                dto.pontos(),
+                dto.tempo(),
+                obterClassificacaoGeral(modalidade));
+        messagingTemplate.convertAndSend("/topic/classificacao/" + modalidade, obterClassificacaoGeral(modalidade));
     }
 
     public int calcularPontuacaoFinal(int r1, int r2, int r3) {
@@ -72,10 +83,15 @@ public class ClassificacaoService {
         equipes equipe = equipeRepository.findById(equipeId)
                 .orElseThrow(() -> new RuntimeException("Equipe não encontrada!"));
         
-        pontuacaoRepository.deleteAll(equipe.getPontuacoes());
-        equipe.getPontuacoes().clear();
+        pontuacaoRepository.deleteByEquipeId(equipeId);
+        if (equipe.getPontuacoes() != null) {
+            equipe.getPontuacoes().clear();
+        }
+        entityManager.flush();
+        entityManager.clear();
         
-        messagingTemplate.convertAndSend("/topic/classificacao", obterClassificacaoGeral());
+        String modalidade = equipe.getModalidade();
+        messagingTemplate.convertAndSend("/topic/classificacao/" + modalidade, obterClassificacaoGeral(modalidade));
     }
 
     @Transactional
@@ -84,14 +100,27 @@ public class ClassificacaoService {
                 .orElseThrow(() -> new RuntimeException("Equipe não encontrada!"));
         
         equipe.setEquipe(novoNome);
-        equipeRepository.save(equipe);
+        equipeRepository.saveAndFlush(equipe);
+        entityManager.clear();
         
-        messagingTemplate.convertAndSend("/topic/classificacao", obterClassificacaoGeral());
+        String modalidade = equipe.getModalidade();
+        messagingTemplate.convertAndSend("/topic/classificacao/" + modalidade, obterClassificacaoGeral(modalidade));
     }
 
+    /** Retorna classificação de todas as equipes (sem filtro de modalidade) */
     public List<ClassificacaoDTO> obterClassificacaoGeral() {
+        return obterClassificacaoGeral(null);
+    }
+
+    /** Retorna classificação filtrada por modalidade (null = todas) */
+    public List<ClassificacaoDTO> obterClassificacaoGeral(String modalidade) {
         entityManager.clear(); 
-        List<equipes> listaEquipes = equipeRepository.findAllComPontuacoes();
+        List<equipes> listaEquipes;
+        if (modalidade != null && !modalidade.isEmpty()) {
+            listaEquipes = equipeRepository.findAllComPontuacoesByModalidade(modalidade);
+        } else {
+            listaEquipes = equipeRepository.findAllComPontuacoes();
+        }
         
         return listaEquipes.stream()
                 .map(equipe -> {

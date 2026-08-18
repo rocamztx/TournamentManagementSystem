@@ -20,19 +20,39 @@ public class DataBaseSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (equipeRepository.count() == 0) {
-            List<equipes> novasEquipes = new ArrayList<>();
-
-            for (int i = 1; i <= 32; i++) {
-                equipes eq = new equipes();
-                eq.setEquipe("Equipe " + i);
-                novasEquipes.add(eq);
+        // Migra equipes existentes que não têm modalidade definida
+        List<equipes> todasEquipes = equipeRepository.findAll();
+        for (equipes eq : todasEquipes) {
+            if (eq.getModalidade() == null || eq.getModalidade().isEmpty()) {
+                eq.setModalidade("seguidor_linha");
             }
+        }
+        if (!todasEquipes.isEmpty()) {
+            equipeRepository.saveAll(todasEquipes);
+        }
 
-            equipeRepository.saveAll(novasEquipes);
-            System.out.println("CARGA INICIAL: 32 equipes geradas com sucesso no banco de dados.");
-        } else {
-            System.out.println("CARGA INICIAL: o banco ja possui equipes cadastradas. Seeding ignorado.");
+        String[] modalidades = { "seguidor_linha", "cabo_guerra", "sumo" };
+        String[] prefixos = { "SL", "CG", "SM" };
+
+        for (int m = 0; m < modalidades.length; m++) {
+            String modalidade = modalidades[m];
+            String prefixo = prefixos[m];
+            long count = equipeRepository.findByModalidade(modalidade).size();
+
+            if (count == 0) {
+                List<equipes> novasEquipes = new ArrayList<>();
+                for (int i = 1; i <= 32; i++) {
+                    equipes eq = new equipes();
+                    eq.setEquipe("Equipe " + i);
+                    eq.setModalidade(modalidade);
+                    novasEquipes.add(eq);
+                }
+                equipeRepository.saveAll(novasEquipes);
+                System.out.println("CARGA INICIAL [" + modalidade + "]: 32 equipes geradas com sucesso.");
+            } else {
+                System.out.println(
+                        "CARGA INICIAL [" + modalidade + "]: já possui " + count + " equipes. Seeding ignorado.");
+            }
         }
     }
 }

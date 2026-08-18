@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 import FRC.TournamentManagementSystem.dtos.ClassificacaoDTO;
 import FRC.TournamentManagementSystem.dtos.PontuacaoInputDTO;
 import FRC.TournamentManagementSystem.services.ClassificacaoService;
@@ -33,8 +35,9 @@ public class ClassificacaoController {
     private String apiKeyConfigurada;
 
     @GetMapping
-    public ResponseEntity<List<ClassificacaoDTO>> buscarClassificacaoGeral() {
-        return ResponseEntity.ok(classificacaoService.obterClassificacaoGeral());
+    public ResponseEntity<List<ClassificacaoDTO>> buscarClassificacaoGeral(
+            @RequestParam(value = "modalidade", required = false) String modalidade) {
+        return ResponseEntity.ok(classificacaoService.obterClassificacaoGeral(modalidade));
     }
 
     @GetMapping("/status")

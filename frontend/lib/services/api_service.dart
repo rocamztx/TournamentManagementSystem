@@ -5,21 +5,43 @@ import '../models/classificacao_model.dart';
 class ApiService {
   final Dio _dio = Dio(
     BaseOptions(
-      connectTimeout: const Duration(seconds: 5),
+      connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       sendTimeout: const Duration(seconds: 10),
     ),
   );
 
-  // URL base do seu servidor Spring Boot (dinâmica)
   String get _baseUrl => '${NetworkConfig.baseUrl}/api/classificacao';
+  String get _equipesUrl => '${NetworkConfig.baseUrl}/api/equipes';
+
+  // Trata erros do Dio com mensagens em português amigáveis
+  String _traduzirErro(Object e) {
+    if (e is DioException) {
+      switch (e.type) {
+        case DioExceptionType.connectionTimeout:
+        case DioExceptionType.sendTimeout:
+        case DioExceptionType.receiveTimeout:
+          return 'Tempo esgotado. Verifique se o servidor está ligado e acessível.';
+        case DioExceptionType.connectionError:
+          return 'Conexão recusada. Verifique o IP (${NetworkConfig.serverIp}:${NetworkConfig.port}) e se o servidor Java está rodando.';
+        case DioExceptionType.badResponse:
+          return 'Resposta inválida do servidor (código ${e.response?.statusCode}).';
+        default:
+          return 'Erro de rede: ${e.message ?? "desconhecido"}';
+      }
+    }
+    return e.toString();
+  }
 
   // ==========================================================
-  // 1. MÉTODO GET: Busca a lista de classificação para a tabela
+  // 1. GET: Classificação geral (com filtro opcional por modalidade)
   // ==========================================================
-  Future<List<ClassificacaoModel>> obterClassificacaoGeral() async {
+  Future<List<ClassificacaoModel>> obterClassificacaoGeral({String? modalidade}) async {
     try {
-      final response = await _dio.get(_baseUrl);
+      final params = <String, dynamic>{};
+      if (modalidade != null) params['modalidade'] = modalidade;
+
+      final response = await _dio.get(_baseUrl, queryParameters: params.isNotEmpty ? params : null);
 
       if (response.statusCode == 200) {
         List<dynamic> dados = response.data;
@@ -28,12 +50,41 @@ class ApiService {
         throw Exception('Erro ao carregar classificação do servidor.');
       }
     } catch (e) {
-      throw Exception('Falha na conexão com a API Java: $e');
+      throw Exception(_traduzirErro(e));
     }
   }
 
   // ==========================================================
-  // 2. MÉTODO POST: Envia a nota do Modo Juiz para o Java
+  // 2. GET: Lista de equipes (com filtro opcional por modalidade)
+  // ==========================================================
+  Future<List<ClassificacaoModel>> obterEquipesParaSelecao({String? modalidade}) async {
+    try {
+      final params = <String, dynamic>{};
+      if (modalidade != null) params['modalidade'] = modalidade;
+
+      final response = await _dio.get(
+        _equipesUrl,
+        queryParameters: params.isNotEmpty ? params : null,
+      );
+
+      if (response.statusCode == 200) {
+        final List<dynamic> dados = response.data;
+        return dados.map((json) => ClassificacaoModel.fromJson(json)).toList();
+      }
+
+      throw Exception('Erro ao carregar equipes do servidor.');
+    } catch (e) {
+      // Fallback: tenta classificação geral com modalidade
+      try {
+        return await obterClassificacaoGeral(modalidade: modalidade);
+      } catch (_) {
+        throw Exception(_traduzirErro(e));
+      }
+    }
+  }
+
+  // ==========================================================
+  // 3. POST: Lança nota no Modo Juiz
   // ==========================================================
   Future<void> lancarNota(
     int equipeId,
@@ -42,16 +93,13 @@ class ApiService {
     double tempo,
   ) async {
     try {
-      // Endpoint exato onde o Java está escutando o POST
       final String urlPost = '$_baseUrl/lancar-nota';
 
-      // Segurança: Injeta a API Key que configuramos no Back-end
       final Map<String, dynamic> cabecalhos = {
         'X-API-KEY': 'OBR2026_ROBOTICA_ELITE',
         'Content-Type': 'application/json',
       };
 
-      // Empacota as variáveis do Flutter no formato JSON exigido pelo DTO do Java
       final Map<String, dynamic> corpoJson = {
         'equipeId': equipeId,
         'round': round,
@@ -59,24 +107,22 @@ class ApiService {
         'tempo': tempo,
       };
 
-      // Dispara a requisição assíncrona
       final response = await _dio.post(
         urlPost,
         data: corpoJson,
         options: Options(headers: cabecalhos),
       );
 
-      // Se o Java não retornar 200 (OK), lança um erro para a tela vermelha capturar
       if (response.statusCode != 200) {
         throw Exception('Erro no servidor: ${response.data}');
       }
     } catch (e) {
-      throw Exception('Falha ao enviar pontuação: $e');
+      throw Exception(_traduzirErro(e));
     }
   }
 
   // ==========================================================
-  // 3. MÉTODO DELETE: Zera o histórico de uma equipe no banco
+  // 4. DELETE: Zera pontuação de uma equipe
   // ==========================================================
   Future<void> zerarPontuacao(int equipeId) async {
     try {
@@ -86,7 +132,6 @@ class ApiService {
         'X-API-KEY': 'OBR2026_ROBOTICA_ELITE',
       };
 
-      // Dispara o comando HTTP DELETE
       final response = await _dio.delete(
         urlDelete,
         options: Options(headers: cabecalhos),
@@ -96,17 +141,20 @@ class ApiService {
         throw Exception('Erro ao tentar zerar a equipe.');
       }
     } catch (e) {
-      throw Exception('Falha na comunicação: $e');
+      throw Exception(_traduzirErro(e));
     }
   }
 
   // ==========================================================
-  // 4. MÉTODO PUT: Atualiza o nome da equipe no banco
+  // 5. PUT: Atualiza nome da equipe
   // ==========================================================
   Future<void> atualizarNomeEquipe(int equipeId, String novoNome) async {
     try {
       final String urlPut = '$_baseUrl/editar-equipe/$equipeId';
-      final cabecalhos = {'X-API-KEY': 'OBR2026_ROBOTICA_ELITE'};
+      final cabecalhos = {
+        'X-API-KEY': 'OBR2026_ROBOTICA_ELITE',
+        'Content-Type': 'application/json',
+      };
 
       final corpoJson = {'nome': novoNome};
 
@@ -116,10 +164,25 @@ class ApiService {
         options: Options(headers: cabecalhos),
       );
 
-      if (response.statusCode != 200)
+      if (response.statusCode != 200) {
         throw Exception('Erro ao atualizar nome.');
+      }
     } catch (e) {
-      throw Exception('Falha na comunicação: $e');
+      throw Exception(_traduzirErro(e));
+    }
+  }
+
+  // ==========================================================
+  // 6. GET: Teste de conexão rápido (ping ao status endpoint)
+  // ==========================================================
+  Future<bool> testarConexao() async {
+    try {
+      final response = await _dio.get(
+        '${NetworkConfig.baseUrl}/api/classificacao/status',
+      );
+      return response.statusCode == 200;
+    } catch (_) {
+      return false;
     }
   }
 }

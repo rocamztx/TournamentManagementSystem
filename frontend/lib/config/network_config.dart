@@ -23,6 +23,6 @@ class NetworkConfig {
 
   /// Retorna informações da configuração atual (útil para debug)
   static String getConfigInfo() {
-    return 'Servidor: ${serverIp}:${port}\nURL: $baseUrl';
+    return 'Servidor: $serverIp:$port\nURL: $baseUrl';
   }
 }

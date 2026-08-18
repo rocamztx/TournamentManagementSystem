@@ -9,16 +9,19 @@ import 'telao_view.dart'; // Importação do Telão
 import 'server_settings_view.dart';
 
 class AppColors {
-  static const Color primaryNavy = Color(0xFF1A365D);
-  static const Color techBlue = Color(0xFF2563EB);
-  static const Color background = Color(0xFFF8FAFC);
-  static const Color textDark = Color(0xFF1E293B);
-  static const Color goldRow = Color(0xFFFEF9E7);
-  static const Color silverRow = Color(0xFFF1F5F9);
-  static const Color bronzeRow = Color(0xFFFDF4E3);
+  static const Color primaryNavy = Color(0xFFE2E8F0); // textPrimary
+  static const Color techBlue = Color(0xFF2563EB); // blue
+  static const Color background = Color(0xFF040D1A); // bg
+  static const Color textDark = Color(0xFFE2E8F0); // textPrimary
+  static const Color goldRow = Color(0xFF332A00);
+  static const Color silverRow = Color(0xFF1A2635);
+  static const Color bronzeRow = Color(0xFF3A1E00);
   static const Color goldMedal = Color(0xFFF59E0B);
   static const Color silverMedal = Color(0xFF94A3B8);
   static const Color bronzeMedal = Color(0xFFB45309);
+  static const Color cardBg = Color(0xFF0A1628); // bgCard
+  static const Color divider = Color(0xFF1E3A5F); // divider
+  static const Color textMuted = Color(0xFF64748B); // textMuted
 }
 
 class ClassificacaoView extends StatefulWidget {
@@ -51,7 +54,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
   /// O Gatilho Mestre: Quando chamado, força as tabelas a buscarem dados frescos no Java
   void _recarregarDados() {
     setState(() {
-      _dadosTabela = _apiService.obterClassificacaoGeral();
+      _dadosTabela = _apiService.obterClassificacaoGeral(modalidade: 'seguidor_linha');
     });
   }
 
@@ -95,7 +98,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
     if (index == 0) return AppColors.goldRow;
     if (index == 1) return AppColors.silverRow;
     if (index == 2) return AppColors.bronzeRow;
-    return Colors.white;
+    return AppColors.cardBg;
   }
 
   @override
@@ -106,7 +109,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
         backgroundColor: AppColors.background,
         appBar: AppBar(
           elevation: 0,
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBg,
           actions: [
             PopupMenuButton<String>(
               itemBuilder: (context) => <PopupMenuEntry<String>>[
@@ -233,8 +236,9 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
             Container(
               margin: const EdgeInsets.symmetric(horizontal: 40),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.cardBg,
                 borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: AppColors.divider),
                 boxShadow: const [
                   BoxShadow(
                     color: Colors.black12,
@@ -247,6 +251,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                 labelColor: AppColors.techBlue,
                 unselectedLabelColor: Colors.grey,
                 indicatorColor: AppColors.techBlue,
+                dividerColor: Colors.transparent,
                 indicatorWeight: 3,
                 labelStyle: TextStyle(fontWeight: FontWeight.bold),
                 tabs: [
@@ -323,7 +328,7 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                   AppColors.primaryNavy,
                 ),
                 headingTextStyle: const TextStyle(
-                  color: Colors.white,
+                  color: AppColors.textDark,
                   fontWeight: FontWeight.w600,
                   fontSize: 15,
                 ),
@@ -462,9 +467,9 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                 child: Container(
                   padding: const EdgeInsets.all(24),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.cardBg,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.grey.shade200),
+                    border: Border.all(color: AppColors.divider),
                     boxShadow: const [
                       BoxShadow(
                         color: Color(0x08000000),
@@ -528,9 +533,10 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
       context: context,
       builder: (BuildContext ctx) {
         return AlertDialog(
-          backgroundColor: Colors.white,
+          backgroundColor: AppColors.cardBg,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(20),
+            side: const BorderSide(color: AppColors.divider),
           ),
           titlePadding: const EdgeInsets.only(
             left: 24,
@@ -560,10 +566,10 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                   controller: nomeController,
                   decoration: InputDecoration(
                     labelText: 'Nome da Equipe',
-                    labelStyle: TextStyle(color: Colors.grey.shade600),
+                    labelStyle: const TextStyle(color: AppColors.textMuted),
                     enabledBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
-                      borderSide: BorderSide(color: Colors.grey.shade300),
+                      borderSide: const BorderSide(color: AppColors.divider),
                     ),
                     focusedBorder: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(8),
@@ -577,8 +583,8 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
                 const SizedBox(height: 16),
                 Text(
                   'Nota: Use o Modo Juiz para uma experiência otimizada de pontuação.',
-                  style: TextStyle(
-                    color: Colors.grey.shade500,
+                  style: const TextStyle(
+                    color: AppColors.textMuted,
                     fontSize: 14,
                     fontStyle: FontStyle.italic,
                   ),
@@ -643,8 +649,9 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
               child: const Text(
                 'CANCELAR',
                 style: TextStyle(
-                  color: Colors.grey,
+                  color: AppColors.textMuted,
                   fontWeight: FontWeight.bold,
+                  fontSize: 15,
                 ),
               ),
             ),
@@ -724,13 +731,13 @@ class _ClassificacaoViewState extends State<ClassificacaoView> {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey.shade300),
+        border: Border.all(color: AppColors.divider),
         color: AppColors.background,
       ),
       child: Text(
         texto,
-        style: TextStyle(
-          color: Colors.grey.shade700,
+        style: const TextStyle(
+          color: AppColors.textDark,
           fontSize: 13,
           fontWeight: FontWeight.w500,
         ),
