@@ -31,7 +31,8 @@ class SumoView extends StatefulWidget {
 
 class _SumoViewState extends State<SumoView> {
   late List<String> _teamNames;
-  late List<int> _equipePontos;
+  late List<int?> _equipePontos;
+  late List<int?> _r16Results;
   late List<int?> _qfResults;
   late List<int?> _sfResults;
   int? _finalResult;
@@ -45,7 +46,8 @@ class _SumoViewState extends State<SumoView> {
   void initState() {
     super.initState();
     _teamNames = List.generate(32, (i) => 'Carregando...');
-    _equipePontos = List.filled(32, 0);
+    _equipePontos = List.filled(32, null);
+    _r16Results = List.filled(8, null);
     _qfResults = List.filled(4, null);
     _sfResults = List.filled(2, null);
     _finalResult = null;
@@ -75,7 +77,8 @@ class _SumoViewState extends State<SumoView> {
                 final Map<String, dynamic> json = jsonDecode(frame.body!);
                 if (json.isEmpty) return;
                 setState(() {
-                  _equipePontos = List<int>.from(json['pontos'] ?? List.filled(32, 0));
+                  _equipePontos = List<int?>.from(json['pontos'] ?? List.filled(32, null));
+                  _r16Results = List<int?>.from(json['r16'] ?? List.filled(8, null));
                   _qfResults = List<int?>.from(json['qf'] ?? List.filled(4, null));
                   _sfResults = List<int?>.from(json['sf'] ?? List.filled(2, null));
                   _finalResult = json['final'];
@@ -95,6 +98,7 @@ class _SumoViewState extends State<SumoView> {
     if (_client == null || !_client!.connected) return;
     final state = {
       'pontos': _equipePontos,
+      'r16': _r16Results,
       'qf': _qfResults,
       'sf': _sfResults,
       'final': _finalResult,
@@ -125,9 +129,10 @@ class _SumoViewState extends State<SumoView> {
     }
   }
 
-  void _addPontos(int teamIndex, int pontos) {
+  void _setPontos(int teamIndex, int pontos) {
     setState(() {
-      _equipePontos[teamIndex] += pontos;
+      _equipePontos[teamIndex] = pontos;
+      _r16Results = List.filled(8, null);
       _qfResults = List.filled(4, null);
       _sfResults = List.filled(2, null);
       _finalResult = null;
@@ -138,7 +143,8 @@ class _SumoViewState extends State<SumoView> {
 
   void _zerarPontos(int teamIndex) {
     setState(() {
-      _equipePontos[teamIndex] = 0;
+      _equipePontos[teamIndex] = null;
+      _r16Results = List.filled(8, null);
       _qfResults = List.filled(4, null);
       _sfResults = List.filled(2, null);
       _finalResult = null;
@@ -147,37 +153,70 @@ class _SumoViewState extends State<SumoView> {
     _publishBracketState();
   }
 
-  String? _getGroupWinner(int groupIndex) {
-    int maxPts = 0;
-    int? winnerIdx;
+  // Retorna o índice GLOBAL do 1º do grupo (maior pts), ou null
+  int? _getGroupRankIdx(int groupIndex, int rank) {
+    List<MapEntry<int, int>> entries = [];
     for (int i = 0; i < 4; i++) {
       int idx = groupIndex * 4 + i;
-      if (_equipePontos[idx] > maxPts) {
-        maxPts = _equipePontos[idx];
-        winnerIdx = idx;
-      }
+      entries.add(MapEntry(idx, _equipePontos[idx] ?? -1));
     }
-    return winnerIdx != null ? _teamNames[winnerIdx] : null;
+    entries.sort((a, b) => b.value.compareTo(a.value));
+    // só considera quem tem pontos >= 0 (jogou), null = -1 fica no fim
+    if (rank < entries.length && entries[rank].value >= 0) return entries[rank].key;
+    return null;
+  }
+
+  String? _getGroup1st(int groupIndex) {
+    final idx = _getGroupRankIdx(groupIndex, 0);
+    return idx != null ? _teamNames[idx] : null;
+  }
+
+  String? _getGroup2nd(int groupIndex) {
+    final idx = _getGroupRankIdx(groupIndex, 1);
+    return idx != null ? _teamNames[idx] : null;
+  }
+
+  // R16: 8 partidas — cross-pairing entre grupos adjacentes
+  // Partida i: 1º do grupo (i*2) vs 2º do grupo (i*2 + 1)
+  // Partida i+4: 2º do grupo (i*2) vs 1º do grupo (i*2 + 1)
+  String? _getR16TeamA(int matchIndex) {
+    switch (matchIndex) {
+      case 0: return _getGroup1st(0); // A1
+      case 1: return _getGroup1st(1); // B1
+      case 2: return _getGroup1st(2); // C1
+      case 3: return _getGroup1st(3); // D1
+      case 4: return _getGroup1st(4); // E1
+      case 5: return _getGroup1st(5); // F1
+      case 6: return _getGroup1st(6); // G1
+      case 7: return _getGroup1st(7); // H1
+      default: return null;
+    }
+  }
+
+  String? _getR16TeamB(int matchIndex) {
+    switch (matchIndex) {
+      case 0: return _getGroup2nd(1); // B2
+      case 1: return _getGroup2nd(0); // A2
+      case 2: return _getGroup2nd(3); // D2
+      case 3: return _getGroup2nd(2); // C2
+      case 4: return _getGroup2nd(5); // F2
+      case 5: return _getGroup2nd(4); // E2
+      case 6: return _getGroup2nd(7); // H2
+      case 7: return _getGroup2nd(6); // G2
+      default: return null;
+    }
   }
 
   String? _getQfTeamA(int matchIndex) {
-    switch(matchIndex) {
-      case 0: return _getGroupWinner(0); // A
-      case 1: return _getGroupWinner(2); // C
-      case 2: return _getGroupWinner(4); // E
-      case 3: return _getGroupWinner(6); // G
-      default: return null;
-    }
+    final r16A = matchIndex * 2;
+    if (_r16Results[r16A] == null) return null;
+    return _r16Results[r16A] == 0 ? _getR16TeamA(r16A) : _getR16TeamB(r16A);
   }
 
   String? _getQfTeamB(int matchIndex) {
-    switch(matchIndex) {
-      case 0: return _getGroupWinner(1); // B
-      case 1: return _getGroupWinner(3); // D
-      case 2: return _getGroupWinner(5); // F
-      case 3: return _getGroupWinner(7); // H
-      default: return null;
-    }
+    final r16B = matchIndex * 2 + 1;
+    if (_r16Results[r16B] == null) return null;
+    return _r16Results[r16B] == 0 ? _getR16TeamA(r16B) : _getR16TeamB(r16B);
   }
 
   String? _getSfTeamA(int matchIndex) {
@@ -213,6 +252,17 @@ class _SumoViewState extends State<SumoView> {
   }
 
 
+
+  void _selectR16Winner(int matchIndex, int team) {
+    setState(() {
+      _r16Results[matchIndex] = team;
+      _qfResults[matchIndex ~/ 2] = null;
+      _sfResults[(matchIndex ~/ 2) ~/ 2] = null;
+      _finalResult = null;
+      _terceiroResult = null;
+    });
+    _publishBracketState();
+  }
 
   void _selectQfWinner(int matchIndex, int team) {
     setState(() {
@@ -259,7 +309,8 @@ class _SumoViewState extends State<SumoView> {
             onPressed: () {
               Navigator.pop(ctx);
               setState(() {
-                _equipePontos = List.filled(32, 0);
+                _equipePontos = List.filled(32, null);
+                _r16Results = List.filled(8, null);
                 _qfResults = List.filled(4, null);
                 _sfResults = List.filled(2, null);
                 _finalResult = null;
@@ -281,15 +332,50 @@ class _SumoViewState extends State<SumoView> {
         backgroundColor: const Color(0xFF0F1D32),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: Text(teamName, style: const TextStyle(color: _SumoColors.textDark, fontWeight: FontWeight.bold)),
-        content: const Text('Selecione os pontos para adicionar:', style: TextStyle(color: _SumoColors.textMuted)),
+        content: const Text('A equipe participou desta rodada?', style: TextStyle(color: _SumoColors.textMuted, fontSize: 16)),
         actions: [
-          TextButton(onPressed: () { Navigator.pop(ctx); _zerarPontos(teamIndex); }, child: const Text('ZERAR', style: TextStyle(color: _SumoColors.red))),
-          TextButton(onPressed: () { Navigator.pop(ctx); _addPontos(teamIndex, 1); }, child: const Text('+1 Ponto', style: TextStyle(color: _SumoColors.techBlue))),
-          TextButton(onPressed: () { Navigator.pop(ctx); _addPontos(teamIndex, 2); }, child: const Text('+2 Pontos', style: TextStyle(color: _SumoColors.techBlue))),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _zerarPontos(teamIndex); },
+            child: const Text('NÃO (Ausente)', style: TextStyle(color: _SumoColors.red)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: _SumoColors.techBlue),
+            onPressed: () {
+              Navigator.pop(ctx);
+              _showSelecionarPontosDialog(teamIndex, teamName);
+            },
+            child: const Text('SIM — Lançar Pontos', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showSelecionarPontosDialog(int teamIndex, String teamName) {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: const Color(0xFF0F1D32),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: Text(teamName, style: const TextStyle(color: _SumoColors.textDark, fontWeight: FontWeight.bold)),
+        content: const Text('Selecione a pontuação obtida:', style: TextStyle(color: _SumoColors.textMuted)),
+        actions: [
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _setPontos(teamIndex, 0); },
+            child: const Text('0 Pontos', style: TextStyle(color: _SumoColors.textMuted, fontSize: 16)),
+          ),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _setPontos(teamIndex, 1); },
+            child: const Text('1 Ponto', style: TextStyle(color: _SumoColors.techBlue, fontSize: 16)),
+          ),
+          TextButton(
+            onPressed: () { Navigator.pop(ctx); _setPontos(teamIndex, 2); },
+            child: const Text('2 Pontos', style: TextStyle(color: _SumoColors.techBlue, fontSize: 16)),
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: _SumoColors.gold),
-            onPressed: () { Navigator.pop(ctx); _addPontos(teamIndex, 3); },
-            child: const Text('+3 Pontos', style: TextStyle(color: Colors.white)),
+            onPressed: () { Navigator.pop(ctx); _setPontos(teamIndex, 3); },
+            child: const Text('3 Pontos', style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -301,7 +387,9 @@ class _SumoViewState extends State<SumoView> {
     indices.sort((a, b) {
       int idxA = groupIndex * 4 + a;
       int idxB = groupIndex * 4 + b;
-      return _equipePontos[idxB].compareTo(_equipePontos[idxA]);
+      int ptsA = _equipePontos[idxA] ?? -1;
+      int ptsB = _equipePontos[idxB] ?? -1;
+      return ptsB.compareTo(ptsA);
     });
     return indices;
   }
@@ -403,17 +491,30 @@ class _SumoViewState extends State<SumoView> {
     );
   }
 
-  Widget _buildGroupTeamRow(String name, int pontos, VoidCallback onTap) {
+  Widget _buildGroupTeamRow(String name, int? pontos, VoidCallback onTap) {
+    final bool jogoAtual = pontos != null;
+    Color borderColor = pontos == 3 ? _SumoColors.gold : pontos == 2 ? _SumoColors.green : pontos == 1 ? _SumoColors.techBlue : _SumoColors.border;
     return InkWell(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+          color: jogoAtual ? borderColor.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: jogoAtual ? borderColor.withValues(alpha: 0.3) : Colors.transparent),
+        ),
         child: Row(
           children: [
-            Expanded(child: Text(name, style: const TextStyle(color: _SumoColors.textDark, fontSize: 13))),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _SumoColors.border, borderRadius: BorderRadius.circular(4)), child: Text('${pontos} pts', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+            Expanded(child: Text(name, style: TextStyle(color: jogoAtual ? _SumoColors.textDark : _SumoColors.textMuted, fontSize: 13))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: jogoAtual ? borderColor : _SumoColors.border, borderRadius: BorderRadius.circular(4)),
+              child: Text(
+                jogoAtual ? '$pontos pts' : '--',
+                style: TextStyle(color: jogoAtual ? Colors.white : _SumoColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -433,13 +534,15 @@ class _SumoViewState extends State<SumoView> {
   }
 
   Widget _buildBracketSide({required bool isLeft, required double matchW, required double matchH, required double gapV, required double colGap}) {
+    final r16Offset = isLeft ? 0 : 4;
     final qfOffset = isLeft ? 0 : 2;
     final sfOffset = isLeft ? 0 : 1;
 
-    final qfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(2, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV), child: _buildMatchCard(width: matchW, teamA: _getQfTeamA(qfOffset + i) ?? '—', teamB: _getQfTeamB(qfOffset + i) ?? '—', selectedTeam: _qfResults[qfOffset + i], onSelectA: _getQfTeamA(qfOffset + i) != null ? () => _selectQfWinner(qfOffset + i, 0) : null, onSelectB: _getQfTeamB(qfOffset + i) != null ? () => _selectQfWinner(qfOffset + i, 1) : null, phase: 'Quartas'))));
-    final sfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(1, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getSfTeamA(sfOffset + i) ?? '—', teamB: _getSfTeamB(sfOffset + i) ?? '—', selectedTeam: _sfResults[sfOffset + i], onSelectA: _getSfTeamA(sfOffset + i) != null ? () => _selectSfWinner(sfOffset + i, 0) : null, onSelectB: _getSfTeamB(sfOffset + i) != null ? () => _selectSfWinner(sfOffset + i, 1) : null, phase: 'Semifinal'))));
+    final r16Col = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(4, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV), child: _buildMatchCard(width: matchW, teamA: _getR16TeamA(r16Offset + i) ?? '—', teamB: _getR16TeamB(r16Offset + i) ?? '—', selectedTeam: _r16Results[r16Offset + i], onSelectA: _getR16TeamA(r16Offset + i) != null ? () => _selectR16Winner(r16Offset + i, 0) : null, onSelectB: _getR16TeamB(r16Offset + i) != null ? () => _selectR16Winner(r16Offset + i, 1) : null, phase: 'Oitavas'))));
+    final qfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(2, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getQfTeamA(qfOffset + i) ?? '—', teamB: _getQfTeamB(qfOffset + i) ?? '—', selectedTeam: _qfResults[qfOffset + i], onSelectA: _getQfTeamA(qfOffset + i) != null ? () => _selectQfWinner(qfOffset + i, 0) : null, onSelectB: _getQfTeamB(qfOffset + i) != null ? () => _selectQfWinner(qfOffset + i, 1) : null, phase: 'Quartas'))));
+    final sfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(1, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) * 1.5 + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getSfTeamA(sfOffset + i) ?? '—', teamB: _getSfTeamB(sfOffset + i) ?? '—', selectedTeam: _sfResults[sfOffset + i], onSelectA: _getSfTeamA(sfOffset + i) != null ? () => _selectSfWinner(sfOffset + i, 0) : null, onSelectB: _getSfTeamB(sfOffset + i) != null ? () => _selectSfWinner(sfOffset + i, 1) : null, phase: 'Semifinal'))));
 
-    final columns = [qfCol, SizedBox(width: colGap), sfCol];
+    final columns = [r16Col, SizedBox(width: colGap), qfCol, SizedBox(width: colGap), sfCol];
     return Row(children: isLeft ? columns : columns.reversed.toList());
   }
 

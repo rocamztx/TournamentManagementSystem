@@ -31,7 +31,8 @@ class SumoTelaoView extends StatefulWidget {
 
 class _SumoTelaoViewState extends State<SumoTelaoView> {
   late List<String> _teamNames;
-  late List<int> _equipePontos;
+  late List<int?> _equipePontos;
+  late List<int?> _r16Results;
   late List<int?> _qfResults;
   late List<int?> _sfResults;
   int? _finalResult;
@@ -45,7 +46,8 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
   void initState() {
     super.initState();
     _teamNames = List.generate(32, (i) => 'Carregando...');
-    _equipePontos = List.filled(32, 0);
+    _equipePontos = List.filled(32, null);
+    _r16Results = List.filled(8, null);
     _qfResults = List.filled(4, null);
     _sfResults = List.filled(2, null);
     _finalResult = null;
@@ -75,7 +77,8 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
                 final Map<String, dynamic> json = jsonDecode(frame.body!);
                 if (json.isEmpty) return;
                 setState(() {
-                  _equipePontos = List<int>.from(json['pontos'] ?? List.filled(32, 0));
+                  _equipePontos = List<int?>.from(json['pontos'] ?? List.filled(32, null));
+                  _r16Results = List<int?>.from(json['r16'] ?? List.filled(8, null));
                   _qfResults = List<int?>.from(json['qf'] ?? List.filled(4, null));
                   _sfResults = List<int?>.from(json['sf'] ?? List.filled(2, null));
                   _finalResult = json['final'];
@@ -114,37 +117,65 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
 
 
 
-  String? _getGroupWinner(int groupIndex) {
-    int maxPts = 0;
-    int? winnerIdx;
+  int? _getGroupRankIdx(int groupIndex, int rank) {
+    List<MapEntry<int, int>> entries = [];
     for (int i = 0; i < 4; i++) {
       int idx = groupIndex * 4 + i;
-      if (_equipePontos[idx] > maxPts) {
-        maxPts = _equipePontos[idx];
-        winnerIdx = idx;
-      }
+      entries.add(MapEntry(idx, _equipePontos[idx] ?? -1));
     }
-    return winnerIdx != null ? _teamNames[winnerIdx] : null;
+    entries.sort((a, b) => b.value.compareTo(a.value));
+    if (rank < entries.length && entries[rank].value >= 0) return entries[rank].key;
+    return null;
+  }
+
+  String? _getGroup1st(int groupIndex) {
+    final idx = _getGroupRankIdx(groupIndex, 0);
+    return idx != null ? _teamNames[idx] : null;
+  }
+
+  String? _getGroup2nd(int groupIndex) {
+    final idx = _getGroupRankIdx(groupIndex, 1);
+    return idx != null ? _teamNames[idx] : null;
+  }
+
+  String? _getR16TeamA(int matchIndex) {
+    switch (matchIndex) {
+      case 0: return _getGroup1st(0);
+      case 1: return _getGroup1st(1);
+      case 2: return _getGroup1st(2);
+      case 3: return _getGroup1st(3);
+      case 4: return _getGroup1st(4);
+      case 5: return _getGroup1st(5);
+      case 6: return _getGroup1st(6);
+      case 7: return _getGroup1st(7);
+      default: return null;
+    }
+  }
+
+  String? _getR16TeamB(int matchIndex) {
+    switch (matchIndex) {
+      case 0: return _getGroup2nd(1);
+      case 1: return _getGroup2nd(0);
+      case 2: return _getGroup2nd(3);
+      case 3: return _getGroup2nd(2);
+      case 4: return _getGroup2nd(5);
+      case 5: return _getGroup2nd(4);
+      case 6: return _getGroup2nd(7);
+      case 7: return _getGroup2nd(6);
+      default: return null;
+    }
   }
 
   String? _getQfTeamA(int matchIndex) {
-    switch(matchIndex) {
-      case 0: return _getGroupWinner(0); // A
-      case 1: return _getGroupWinner(2); // C
-      case 2: return _getGroupWinner(4); // E
-      case 3: return _getGroupWinner(6); // G
-      default: return null;
-    }
+    final r16A = matchIndex * 2;
+    if (_r16Results[r16A] == null) return null;
+    return _r16Results[r16A] == 0 ? _getR16TeamA(r16A) : _getR16TeamB(r16A);
   }
 
   String? _getQfTeamB(int matchIndex) {
-    switch(matchIndex) {
-      case 0: return _getGroupWinner(1); // B
-      case 1: return _getGroupWinner(3); // D
-      case 2: return _getGroupWinner(5); // F
-      case 3: return _getGroupWinner(7); // H
-      default: return null;
-    }
+    final r16B = matchIndex * 2 + 1;
+    if (_r16Results[r16B] == null) return null;
+    return _r16Results[r16B] == 0 ? _getR16TeamA(r16B) : _getR16TeamB(r16B);
   }
 
   String? _getSfTeamA(int matchIndex) {
@@ -186,7 +217,9 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
     indices.sort((a, b) {
       int idxA = groupIndex * 4 + a;
       int idxB = groupIndex * 4 + b;
-      return _equipePontos[idxB].compareTo(_equipePontos[idxA]);
+      int ptsA = _equipePontos[idxA] ?? -1;
+      int ptsB = _equipePontos[idxB] ?? -1;
+      return ptsB.compareTo(ptsA);
     });
     return indices;
   }
@@ -284,17 +317,30 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
     );
   }
 
-  Widget _buildGroupTeamRow(String name, int pontos, VoidCallback? onTap) {
+  Widget _buildGroupTeamRow(String name, int? pontos, VoidCallback? onTap) {
+    final bool jogoAtual = pontos != null;
+    Color borderColor = pontos == 3 ? _SumoColors.gold : pontos == 2 ? _SumoColors.green : pontos == 1 ? _SumoColors.techBlue : _SumoColors.border;
     return InkWell(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.only(bottom: 4),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-        decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(6)),
+        decoration: BoxDecoration(
+          color: jogoAtual ? borderColor.withValues(alpha: 0.08) : Colors.transparent,
+          borderRadius: BorderRadius.circular(6),
+          border: Border.all(color: jogoAtual ? borderColor.withValues(alpha: 0.3) : Colors.transparent),
+        ),
         child: Row(
           children: [
-            Expanded(child: Text(name, style: const TextStyle(color: _SumoColors.textDark, fontSize: 13))),
-            Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: _SumoColors.border, borderRadius: BorderRadius.circular(4)), child: Text('${pontos} pts', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold))),
+            Expanded(child: Text(name, style: TextStyle(color: jogoAtual ? _SumoColors.textDark : _SumoColors.textMuted, fontSize: 13))),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+              decoration: BoxDecoration(color: jogoAtual ? borderColor : _SumoColors.border, borderRadius: BorderRadius.circular(4)),
+              child: Text(
+                jogoAtual ? '$pontos pts' : '--',
+                style: TextStyle(color: jogoAtual ? Colors.white : _SumoColors.textMuted, fontSize: 11, fontWeight: FontWeight.bold),
+              ),
+            ),
           ],
         ),
       ),
@@ -314,13 +360,15 @@ class _SumoTelaoViewState extends State<SumoTelaoView> {
   }
 
   Widget _buildBracketSide({required bool isLeft, required double matchW, required double matchH, required double gapV, required double colGap}) {
+    final r16Offset = isLeft ? 0 : 4;
     final qfOffset = isLeft ? 0 : 2;
     final sfOffset = isLeft ? 0 : 1;
 
-    final qfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(2, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV), child: _buildMatchCard(width: matchW, teamA: _getQfTeamA(qfOffset + i) ?? '—', teamB: _getQfTeamB(qfOffset + i) ?? '—', selectedTeam: _qfResults[qfOffset + i], onSelectA: null, onSelectB: null, phase: 'Quartas'))));
-    final sfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(1, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getSfTeamA(sfOffset + i) ?? '—', teamB: _getSfTeamB(sfOffset + i) ?? '—', selectedTeam: _sfResults[sfOffset + i], onSelectA: null, onSelectB: null, phase: 'Semifinal'))));
+    final r16Col = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(4, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV), child: _buildMatchCard(width: matchW, teamA: _getR16TeamA(r16Offset + i) ?? '—', teamB: _getR16TeamB(r16Offset + i) ?? '—', selectedTeam: _r16Results[r16Offset + i], onSelectA: null, onSelectB: null, phase: 'Oitavas'))));
+    final qfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(2, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getQfTeamA(qfOffset + i) ?? '—', teamB: _getQfTeamB(qfOffset + i) ?? '—', selectedTeam: _qfResults[qfOffset + i], onSelectA: null, onSelectB: null, phase: 'Quartas'))));
+    final sfCol = Column(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(1, (i) => Padding(padding: EdgeInsets.symmetric(vertical: gapV + (matchH + gapV * 2) * 1.5 + (matchH + gapV * 2) / 2), child: _buildMatchCard(width: matchW, teamA: _getSfTeamA(sfOffset + i) ?? '—', teamB: _getSfTeamB(sfOffset + i) ?? '—', selectedTeam: _sfResults[sfOffset + i], onSelectA: null, onSelectB: null, phase: 'Semifinal'))));
 
-    final columns = [qfCol, SizedBox(width: colGap), sfCol];
+    final columns = [r16Col, SizedBox(width: colGap), qfCol, SizedBox(width: colGap), sfCol];
     return Row(children: isLeft ? columns : columns.reversed.toList());
   }
 
