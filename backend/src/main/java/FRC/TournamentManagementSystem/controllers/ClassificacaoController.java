@@ -76,6 +76,18 @@ public class ClassificacaoController {
         return ResponseEntity.ok().build();
     }
 
+    @DeleteMapping("/zerar-tudo")
+    public ResponseEntity<Void> zerarTudo(
+            @RequestHeader(value = "X-API-KEY", required = false) String apiKey) {
+
+        if (!apiKeyValida(apiKey)) {
+            return ResponseEntity.status(403).build();
+        }
+
+        classificacaoService.zerarTudo();
+        return ResponseEntity.ok().build();
+    }
+
     @PutMapping("/editar-equipe/{id}")
     public ResponseEntity<Void> editarNomeEquipe(
             @PathVariable Long id,

@@ -35,6 +35,9 @@ public class ClassificacaoService {
     @Autowired
     private TerminalScoreboardService terminalScoreboardService;
 
+    @Autowired
+    private FRC.TournamentManagementSystem.repositories.BracketStateRepository bracketStateRepository;
+
     @Transactional
     public void salvarPontuacao(PontuacaoInputDTO dto) {
         equipes equipe = equipeRepository.findById(dto.equipeId())
@@ -92,6 +95,20 @@ public class ClassificacaoService {
         
         String modalidade = equipe.getModalidade();
         messagingTemplate.convertAndSend("/topic/classificacao/" + modalidade, obterClassificacaoGeral(modalidade));
+    }
+
+    @Transactional
+    public void zerarTudo() {
+        pontuacaoRepository.deleteAll();
+        bracketStateRepository.deleteAll();
+        entityManager.flush();
+        entityManager.clear();
+
+        messagingTemplate.convertAndSend("/topic/classificacao/seguidor_linha", obterClassificacaoGeral("seguidor_linha"));
+        messagingTemplate.convertAndSend("/topic/classificacao/cabo_guerra", obterClassificacaoGeral("cabo_guerra"));
+        messagingTemplate.convertAndSend("/topic/classificacao/sumo", obterClassificacaoGeral("sumo"));
+        messagingTemplate.convertAndSend("/topic/bracket/cabo_guerra", "{}");
+        messagingTemplate.convertAndSend("/topic/bracket/sumo", "{}");
     }
 
     @Transactional
